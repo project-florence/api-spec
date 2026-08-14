@@ -1,26 +1,25 @@
 # Florence API Specification
 
+> **Türkçe** — [For the English version, click here](./README-en.md)
+
 > **Güncel API dokümantasyonu** — Florence backend'in (`florence/backend`) canlı FastAPI uygulamasından üretilmiştir.
-> **Current API documentation** — generated from the live FastAPI application in `florence/backend`.
 
 Bu repo, Florence platformunun **tek doğruluk kaynağı olan backend kodundan** (`src/api/`, `src/services/`, `src/core/`) çıkarılmış yeni nesil API dokümanlarını barındırır. Eski `openapi.json` / `API.md` / legacy dokümanlar kaldırılmış, yerine kodla senkronize güncel sürüm konmuştur.
 
-This repository holds the next-generation API documentation extracted from the **single source of truth — the backend codebase** (`src/api/`, `src/services/`, `src/core/`). Legacy documents were removed in favor of a code-synchronized current version.
-
 ---
 
-## 📁 Dosya İndeksi / File Index
+## 📁 Dosya İndeksi
 
-| Dosya / File | Dil / Language | İçerik / Content |
+| Dosya | Dil | İçerik |
 |---|---|---|
-| [`openapi.json`](./openapi.json) | OpenAPI 3.x (JSON) | FastAPI `app.openapi()` çıktısı — **gerçek uygulamadan üretildi** (89 path, 23 schema). Generated from the live app. |
+| [`openapi.json`](./openapi.json) | OpenAPI 3.x (JSON) | FastAPI `app.openapi()` çıktısı — **gerçek uygulamadan üretildi** (89 path, 23 schema). |
 | [`docs/api-reference-tr.md`](./docs/api-reference-tr.md) | 🇹🇷 Türkçe | **Tam API referansı**: tüm endpoint'ler, parametreler, request/response şemaları, örnek JSON, auth akışları, rate limit'ler, hata formatları, veri modelleri, cache/TTL kuralları, ortam değişkenleri. |
-| [`docs/api-reference-en.md`](./docs/api-reference-en.md) | 🇬🇧 English | **Full API reference** — same scope as the Turkish version, one-to-one. |
-| [`docs/ai-context.md`](./docs/ai-context.md) | 🇬🇧 English | **AI/LLM context pack**: single-file compact context so an AI agent can understand the backend and add new endpoints/features correctly. |
+| [`docs/api-reference-en.md`](./docs/api-reference-en.md) | 🇬🇧 English | **Full API reference** — Türkçe versiyonla birebir aynı kapsamda. |
+| [`docs/ai-context.md`](./docs/ai-context.md) | 🇬🇧 English | **AI/LLM bağlam paketi**: tek dosyalık kompakt bağlam; bir AI ajanının backend'i anlayıp yeni endpoint/özellik doğru ekleyebilmesi için. |
 
 ---
 
-## 🚀 Hızlı Başlangıç / Quick Start
+## 🚀 Hızlı Başlangıç
 
 ```bash
 # Tüm uç noktalar tek komutla (auth gerektirmeyenler):
@@ -42,25 +41,18 @@ curl http://localhost:7055/api/v1/profile \
 
 Base URL: `http://localhost:7055` (production'da `PUBLIC_BASE_URL` env'i ile tanımlanır). Tüm feature endpoint'leri `/api/v1` prefix'i altındadır.
 
-Base URL: `http://localhost:7055` (in production defined by the `PUBLIC_BASE_URL` env var). All feature endpoints live under the `/api/v1` prefix.
-
 ---
 
-## 🔐 Kimlik Doğrulama / Authentication (özet — summary)
+## 🔐 Kimlik Doğrulama (özet)
 
 - **Access token**: JWT (HS256, `SECRET_KEY`), payload `{user_id, iat, exp}`, geçerlilik **1 saat**. `Authorization: Bearer <token>` header'ı **veya** `access_token` httpOnly cookie kabul edilir.
 - **Refresh token**: `secrets.token_urlsafe(48)`, DB'de SHA-256 hash ile saklanır, **her refresh'te rotasyon** yapılır, TTL 30 gün (`REFRESH_TOKEN_TTL_DAYS`). Body veya `refresh_token` cookie (path `/api/v1/auth`) ile gönderilir.
 - **Şifreler**: Argon2. E-posta doğrulanmamış hesaplar login/refresh yapamaz (bot hesapları istisna).
-- Detaylı akış: bkz. `docs/api-reference-tr.md` → "Kimlik Doğrulama Akışları" / `docs/api-reference-en.md` → "Authentication Flows".
-
-- **Access token**: JWT (HS256, `SECRET_KEY`), payload `{user_id, iat, exp}`, **1 hour** lifetime. Accepted via `Authorization: Bearer <token>` header **or** the `access_token` httpOnly cookie.
-- **Refresh token**: `secrets.token_urlsafe(48)`, stored as SHA-256 hash in DB, **rotated on every refresh**, TTL 30 days (`REFRESH_TOKEN_TTL_DAYS`). Sent in body or via the `refresh_token` cookie (path `/api/v1/auth`).
-- **Passwords**: Argon2. Unverified-email accounts cannot log in or refresh (bot accounts exempt).
-- Full flow: see `docs/api-reference-tr.md` → "Kimlik Doğrulama Akışları" / `docs/api-reference-en.md` → "Authentication Flows".
+- Detaylı akış: bkz. `docs/api-reference-tr.md` → "Kimlik Doğrulama Akışları".
 
 ---
 
-## 🧭 Endpoint Dağılımı / Endpoint Map
+## 🧭 Endpoint Dağılımı
 
 | Tag / Alan | Endpoint sayısı | Örnekler |
 |---|---|---|
@@ -80,7 +72,7 @@ Base URL: `http://localhost:7055` (in production defined by the `PUBLIC_BASE_URL
 
 ---
 
-## 🔄 openapi.json Nasıl Üretilir / How to Regenerate
+## 🔄 openapi.json Nasıl Üretilir
 
 `openapi.json` dosyası kod değiştiğinde şöyle yeniden üretilir (backend repo kökünde):
 
@@ -98,10 +90,8 @@ with open('/home/efe/Belgeler/florence/api-spec/openapi.json', 'w') as f:
 
 > Not: `FRED_API_KEY` yoksa `src/clients/macroeconomy.py` import anında `ValueError` fırlatır; sahte değer export etmek şarttır. `LOG_DIR` de yazılabilir bir dizine işaret etmelidir (`/var/log/florence` root ister).
 
-> Note: without `FRED_API_KEY` the `src/clients/macroeconomy.py` module raises `ValueError` at import time; a dummy value must be exported. `LOG_DIR` must point to a writable directory (`/var/log/florence` requires root).
-
 ---
 
-## 📄 Lisans / License
+## 📄 Lisans
 
-Bu dokümantasyon Florence projesinin bir parçasıdır; backend repo'sundaki lisans koşullarına tabidir. / This documentation is part of the Florence project and is subject to the license terms of the backend repository.
+Bu dokümantasyon Florence projesinin bir parçasıdır; backend repo'sundaki lisans koşullarına tabidir.
