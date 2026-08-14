@@ -1,6 +1,6 @@
 # Florence API Reference (English)
 
-> **Source:** `/home/efe/Belgeler/florence/backend` — the live FastAPI application (version: `src/version.py`).
+> **Source:** the Florence backend repo — the live FastAPI application (version: `src/version.py`).
 > **Generated:** 2026-08-14 — every endpoint was verified at code level against the `src/api/` router files; schemas are taken verbatim from the Pydantic models.
 > **Matching Turkish document:** [`api-reference-tr.md`](./api-reference-tr.md) (identical scope).
 
@@ -223,12 +223,12 @@ The Redis proxy (`src/core/redis.py`) is **down-tolerant**: if the connection ca
 
 ## 8. Endpoint Reference
 
-> Legend: 🔓 = public (no auth), 🔐 = JWT required, ⚙ = subject to feature kill-switch, ⏳ = subject to job slot.
+> Legend: (public) = public (no auth), (JWT) = JWT required, (feature) = subject to feature kill-switch, (slot) = subject to job slot.
 > All paths are under the `/api/v1` prefix. Auth: `Authorization: Bearer <access_token>` header or the `access_token` cookie.
 
 ### 8.1 Auth & User (`src/api/auth.py`)
 
-#### `POST /auth/register` 🔓
+#### `POST /auth/register` (public)
 User registration. Generates a 24-hour email verification token and sends the mail.
 
 - **Body:** `{"username": str, "email": str, "password": str (min 10)}`
@@ -239,7 +239,7 @@ User registration. Generates a 24-hour email verification token and sends the ma
 ```
 - **Errors:** 400 `"error_username_taken"` / `"error_email_taken"`; 500 `"Database error"`
 
-#### `POST /auth/login` 🔓
+#### `POST /auth/login` (public)
 OAuth2 form login — `application/x-www-form-urlencoded`, fields: `username` (username **or** email), `password`.
 
 - **Rate limit:** 5/min/username
@@ -249,14 +249,14 @@ OAuth2 form login — `application/x-www-form-urlencoded`, fields: `username` (u
 ```
 - **Errors:** 400 `"error_login_failed"`; 403 `"error_email_not_verified"` (unverified account, bots exempt)
 
-#### `GET /auth/verify-email` 🔓
+#### `GET /auth/verify-email` (public)
 Email verification.
 
 - **Query:** `token: str` (required)
 - **Response 200:** `{"message": "Email verified", "email_verified": true}`
 - **Errors:** 400 `"Invalid or expired verification token"`
 
-#### `POST /auth/resend-verification` 🔓
+#### `POST /auth/resend-verification` (public)
 Resends the verification email.
 
 - **Body:** `{"username_or_email": str}`
@@ -264,7 +264,7 @@ Resends the verification email.
 - **Response 200:** `{"verification_sent": bool}`
 - **Errors:** 404 `"User not found"`; 400 `"Email already verified"`
 
-#### `POST /auth/refresh` 🔓
+#### `POST /auth/refresh` (public)
 Refresh token rotation + new access token.
 
 - **Body (optional):** `{"refresh_token": str}` — falls back to the cookie
@@ -272,40 +272,40 @@ Refresh token rotation + new access token.
 - **Response 200:** `{"access_token", "refresh_token", "token_type": "bearer"}` + cookies refreshed
 - **Errors:** 401 `"Invalid or expired refresh token"`; 403 `"error_email_not_verified"`
 
-#### `POST /auth/logout` 🔓
+#### `POST /auth/logout` (public)
 Revokes the refresh token and clears cookies.
 
 - **Body:** `{"refresh_token": str}` (cookie also accepted)
 - **Response 200:** `{"message": "Logged out"}`
 
-#### `DELETE /auth/delete` 🔐
+#### `DELETE /auth/delete` (JWT)
 Permanently deletes the account.
 
 - **Response 200:** `{"message": "Deleted user {id}"}`
 - **Errors:** 400 `"Database error"`
 
-#### `PUT /auth/change-password` 🔐
+#### `PUT /auth/change-password` (JWT)
 Changes the password → `password_changed_at` updated, all refresh tokens revoked.
 
 - **Body:** `{"current_password": str, "new_password": str (min 10)}`
 - **Response 200:** `{"message": "Password changed successfully"}`
 - **Errors:** 404 `"User not found"`; 400 `"Current password is incorrect"`
 
-#### `PUT /auth/change-email` 🔐
+#### `PUT /auth/change-email` (JWT)
 Changes the email → all tokens revoked.
 
 - **Body:** `{"new_email": str, "current_password": str}`
 - **Response 200:** `{"message": "Email changed successfully", "new_email": "..."}`
 - **Errors:** 400 `"Email already in use"` / `"Current password is incorrect"`
 
-#### `PUT /auth/change-username` 🔐
+#### `PUT /auth/change-username` (JWT)
 Changes the username → all tokens revoked.
 
 - **Body:** `{"new_username": str, "current_password": str}`
 - **Response 200:** `{"message": "Username changed successfully", "new_username": "..."}`
 - **Errors:** 400 `"Username already in use"`
 
-#### `GET /profile` 🔐
+#### `GET /profile` (JWT)
 Profile + credit balance.
 
 - **Response 200:**
@@ -317,25 +317,25 @@ Profile + credit balance.
 }
 ```
 
-#### `PUT /profile/avatar` 🔐
+#### `PUT /profile/avatar` (JWT)
 Changes the avatar.
 
 - **Body:** `{"avatar_id": "avatar-1"}` … `"avatar-12"`
 - **Response 200:** `{"message": "Avatar updated", "avatar_id": "..."}`
 - **Errors:** 400 `"Unknown avatar_id"`
 
-#### `GET /credits` 🔐
+#### `GET /credits` (JWT)
 Credit balance.
 
 - **Response 200:** `{"credits": 18.5}`
 
-#### `GET /user/preferences` 🔐
+#### `GET /user/preferences` (JWT)
 JSONB user preferences.
 
 - **Response 200:** raw JSONB object (e.g. `{"theme": "dark", "language": "tr"}`)
 - **Errors:** 404 `"Preferences not found"`
 
-#### `PUT /user/preferences` 🔐
+#### `PUT /user/preferences` (JWT)
 Updates preferences (**merged** into existing prefs).
 
 - **Body:** `{"prefs": {"theme": "light"}}`
@@ -343,74 +343,74 @@ Updates preferences (**merged** into existing prefs).
 
 ### 8.2 BIST / Company / Price (`src/api/bist.py`, `src/api/stats.py`)
 
-#### `GET /bist/companies` 🔓
+#### `GET /bist/companies` (public)
 BIST company list (from Redis, 30-day TTL).
 
 - **Query:** `sort: "alphabetical"|"popular"` (default alphabetical), `offset: int ≥0` (default 0), `limit: int 1-500` (default 50)
 - **Response 200:** list of company dicts (`ticker`, `name`, …) — for `popular`, offset+limit popular companies are fetched then sliced
 
-#### `GET /bist/tickers` 🔓
+#### `GET /bist/tickers` (public)
 Ticker list.
 
 - **Query:** same: `sort`, `offset`, `limit`
 - **Response 200:** list of ticker strings (popular uses `get_popular_tickers`)
 
-#### `GET /companies/search` 🔓
+#### `GET /companies/search` (public)
 Company text search (aliases supported: "IS BANK" → ISCTR).
 
 - **Query:** `query: str` (required)
 - **Response 200:** result of `search_companies_by_text`
 
-#### `GET /companies/info/{ticker}` 🔓
+#### `GET /companies/info/{ticker}` (public)
 Structured company profile based on yfinance. `ticker` must be a valid BIST code (`.IS` appended).
 
 - **Path:** `ticker` (invalid → 404 `"Invalid BIST ticker: X"`)
 - **Response 200:** profile dict — `symbol`, `name`, `sector`, `industry`, `currency`, `exchange`, `market{currentPrice, previousClose, marketCap, dayHigh, dayLow, regularMarketVolume, fiftyTwoWeekHigh, fiftyTwoWeekLow, regularMarketTime}`, `trading{beta, sharesOutstanding, floatShares, averageVolume, averageVolume10days, fiftyDayAverage, twoHundredDayAverage, shortRatio, heldPercentInsiders, heldPercentInstitutions}`, `valuation{trailingPE, forwardPE, pegRatio, priceToBook, priceToSalesTrailing12Months, enterpriseValue, enterpriseToEbitda, enterpriseToRevenue, bookValue, trailingEps, forwardEps, dividendYield, payoutRatio, targetMeanPrice, targetHighPrice, targetLowPrice, recommendationKey, numberOfAnalystOpinions}`, `financials{totalRevenue, revenuePerShare, revenueGrowth, grossProfits, grossMargins, ebitda, ebitdaMargins, netIncomeToCommon, profitMargins, operatingMargins, operatingCashflow, freeCashflow, earningsGrowth, earningsQuarterlyGrowth, returnOnEquity, returnOnAssets}`, `balanceSheet{totalCash, totalCashPerShare, totalDebt, debtToEquity, currentRatio, quickRatio}`, `recommendations: []`
 
-#### `GET /companies/info/{ticker}/md` 🔓
+#### `GET /companies/info/{ticker}/md` (public)
 Same profile as **markdown text** (`text/markdown; charset=utf-8`).
 
-#### `GET /companies/summary` 🔓
+#### `GET /companies/summary` (public)
 Summary table.
 
 - **Query:** `limit: int 1-500` (default 50), `offset: int ≥0`, `sort: popular|alphabetical|gainers|losers|price_high|price_low|volume|market_cap` (default popular), `tickers: str|null` (comma-separated filter)
 - **Response 200:** summary shaped `{total, data: [{ticker, name, price, change_pct, ...}]}`
 
-#### `GET /news/{ticker}` 🔐 ⚙(news)
+#### `GET /news/{ticker}` (JWT) (feature: news)
 Stock news (GDELT/BigQuery, last 90 days, Turkish).
 
 - **Path:** `ticker`; **Query:** `amount: int 1-50` (default 10)
 - **Rate limit:** 10/min/user+ticker (admin 100/min)
 - **Response 200:** list of `[{url, title, lang, date}]` (date ISO8601)
 
-#### `GET /price/history/{ticker}` 🔓
+#### `GET /price/history/{ticker}` (public)
 Candle data (yfinance + `price_candles` DB table).
 
 - **Path:** `ticker`; **Query:** `period: "1d"|"5d"|"1mo"|"3mo"|"6mo"|"1y"|"2y"|"5y"|"10y"|"ytd"|"max"` (default 1mo), `interval: "5m"|"30m"|"1h"|"1d"|"5d"|"1wk"|"1mo"|"3mo"` (default 1d)
 - **Constraint:** max days per interval: 5m→60, 30m→60, 1h→730, 1d/5d/1wk/1mo/3mo→3650. Exceeding → 400.
 - **Response 200:** list of `[{ts, open, high, low, close, volume}]`
 
-#### `GET /price/current` 🔓
+#### `GET /price/current` (public)
 Current price + change (quote logic).
 
 - **Query:** `ticker: str` (required), `interval: "5m"|"30m"|"1h"|"1d"` (default 5m)
 - **Response 200:** `{ticker, price, previous_close, absolute_change, change_pct, as_of, previous_close_as_of, market_status ("open"|"closed"), is_stale, change_window, interval}`
 - **Errors:** 404 `"Price not found"` (no price)
 
-#### `GET /stats/top` 🔓
+#### `GET /stats/top` (public)
 Most traded tickers (by ticker_stats total).
 
 - **Query:** `limit: int` (default 50)
 - **Response 200:** `[{ticker, name, info_count, report_count, news_count, history_count, simulation_count, favorite_count, total}]`
 
-#### `GET /stats/{ticker}` 🔓
+#### `GET /stats/{ticker}` (public)
 Statistics for a single ticker.
 
 - **Response 200:** `{info_count, report_count, news_count, history_count, simulation_count, favorite_count, ticker: "XXX"}`
 
 ### 8.3 Reports (`src/api/reports.py`)
 
-#### `POST /reports/generate` 🔐 ⚙(report_generate) ⏳(report, 900s)
+#### `POST /reports/generate` (JWT) (feature: report_generate) (slot: report, 900s)
 Generates an LLM-based investment report. Credits: the estimated cost is charged upfront, then refunded/additionally charged based on actual token usage.
 
 - **Query:** `ticker: str` (required, valid BIST code), `type: "quick_report"|"deep_report"` (required), `purpose: str|null (max 500)` (optional user question)
@@ -428,31 +428,31 @@ Generates an LLM-based investment report. Credits: the estimated cost is charged
 - **Errors:** 400 `"Invalid type"`; 402 insufficient credits; 500 `"Report generation failed"` (credits refunded)
 - **Note:** requests are limited to one concurrent report per user (job slot); may take 30-60s+.
 
-#### `GET /reports/info` 🔓 (no auth dependency; also not in the middleware public list — without a token you get 401)
+#### `GET /reports/info` (public) (no auth dependency; also not in the middleware public list — without a token you get 401)
 Report types, costs, and endpoint documentation.
 
 - **Response 200:** `{quick_report: {type, name_en, name_tr, description, description_tr, est_cost}, deep_report: {...}, token_cost_per_1k, endpoints: {generate, history, search, detail}}`
 
-#### `GET /reports/history` 🔐
+#### `GET /reports/history` (JWT)
 The user's report history.
 
 - **Query:** `sort: "created_at"|"ticker"` (default created_at), `order: "asc"|"desc"` (default desc)
 - **Response 200:** `[ReportHistoryItem]` — `{id, ticker, type, title|null, token_usage|null, purpose|null, created_at}`
 - **Errors:** 400 invalid sort/order (`"Invalid sort. Allowed: ['created_at', 'ticker']"`)
 
-#### `GET /reports/search` 🔐
+#### `GET /reports/search` (JWT)
 ILIKE search in title/content (own reports only).
 
 - **Query:** `q: str (min 1)` (required), `sort`, `order`, `limit: int 1-100` (default 20), `offset: int ≥0`
 - **Response 200:** `[ReportHistoryItem]`
 
-#### `GET /reports/{report_id}` 🔐
+#### `GET /reports/{report_id}` (JWT)
 Single report (owner check).
 
 - **Response 200:** `{success, report_id, about (ticker), type, title, token_usage, purpose, report (markdown), sentiments, created_at}`
 - **Errors:** 404 `"Report not found or you do not have permission to view it."`
 
-#### `POST /reports/download` 🔐
+#### `POST /reports/download` (JWT)
 Downloads the report as md/docx/pdf (pandoc; docx/pdf generation runs in a thread).
 
 - **Query:** `report_id: int` (required), `ftype: "md"|"docx"|"pdf"` (required)
@@ -461,30 +461,30 @@ Downloads the report as md/docx/pdf (pandoc; docx/pdf generation runs in a threa
 
 ### 8.4 Simulations (`src/api/simulations.py`)
 
-#### `GET /simulations/per-day-cost` 🔐
+#### `GET /simulations/per-day-cost` (JWT)
 Daily simulation cost.
 
 - **Response 200:** `{"per_day_cost": 0.005, "round": 3}`
 
-#### `GET /simulations/estimate-cost/{ticker}` 🔐
+#### `GET /simulations/estimate-cost/{ticker}` (JWT)
 Cost estimate.
 
 - **Query:** `days: int 1-370` (required)
 - **Response 200:** `{"cost": 1.85}` (days × 0.005, 3 decimals)
 
-#### `GET /simulations/history` 🔐
+#### `GET /simulations/history` (JWT)
 Simulation history.
 
 - **Query:** `limit: int 1-100` (default 20), `offset: int ≥0`
 - **Response 200:** `[{id, ticker, days, bounds, target, cost, created_at}]`
 
-#### `GET /simulations/history/{sim_id}` 🔐
+#### `GET /simulations/history/{sim_id}` (JWT)
 Simulation detail.
 
 - **Response 200:** `{id, ticker, days, bounds, target, result (JSONB), cost, created_at}`
 - **Errors:** 404 `"Simulation not found"`
 
-#### `GET /simulations/{ticker}` 🔐 ⚙(simulation) ⏳(simulation, 600s)
+#### `GET /simulations/{ticker}` (JWT) (feature: simulation) (slot: simulation, 600s)
 Runs a Monte Carlo simulation (CPU-heavy, runs in a thread).
 
 - **Path:** `ticker` (valid BIST code); **Query:** `days: int 1-370` (required), `bounds: str` (default "0.05" — confidence interval percentage), `target: str|null` (target price; if omitted auto = current price + 10%, direction "above")
@@ -503,65 +503,65 @@ Runs a Monte Carlo simulation (CPU-heavy, runs in a thread).
 
 ### 8.5 Economy / Macro / IPO (`src/api/economy.py`, `src/api/ipo.py`)
 
-#### `GET /economy/gold-prices` 🔓
+#### `GET /economy/gold-prices` (public)
 Gold prices (GenelPara, 20 min cache). Keys: `gram-altin`, `ceyrek-altin`, `ons`, `gram-has-altin`, `yarim-altin`, `tam-altin`, `cumhuriyet-altini`, `ata-altin`, `14-ayar-altin`, `18-ayar-altin`, `22-ayar-bilezik`, `ikibucuk-altin`, `besli-altin`, `gremse-altin`, `resat-altin`, `hamit-altin`.
 
 - **Response 200:** `{"gram-altin": {"Buying": "3.450,50", "Selling": "3.470,00", "Change": "%0,42", "Type": "Gold"}, ...}`
 - **Note:** `Buying`/`Selling` are returned as Turkish comma-decimal **strings**; `Change` is a `%x.xx` string.
 
-#### `GET /economy/silver-price` 🔓
+#### `GET /economy/silver-price` (public)
 Silver price.
 
 - **Response 200:** `{"gumus": {"Buying", "Selling", "Change", "Type": "Gold"}}`
 
-#### `GET /economy/gram-platinum-price` 🔓
+#### `GET /economy/gram-platinum-price` (public)
 Gram platinum.
 
 - **Response 200:** `{"gram-platin": {"Buying", "Selling", "Change", "Type": "Commodity"}}`
 
-#### `GET /economy/gram-palladium-price` 🔓
+#### `GET /economy/gram-palladium-price` (public)
 Gram palladium.
 
 - **Response 200:** `{"gram-paladyum": {"Buying", "Selling", "Change", "Type": "Commodity"}}`
 
-#### `GET /economy/currency` 🔓
+#### `GET /economy/currency` (public)
 FX rates (TRY excluded).
 
 - **Query:** `symbols: str|null` (comma-separated filter, e.g. `USD,EUR`; all if omitted)
 - **Response 200:** `{"USD": {"Buying": "40,25", "Selling": "40,30", "Change": "%0,10", "Type": "Currency"}, "EUR": {...}, ...}`
 
-#### `GET /macroeconomy` 🔓
+#### `GET /macroeconomy` (public)
 FRED macroeconomic indicators (14 series, 24 h cache).
 
 - **Response 200:** macro data dict (gdp, fed_funds, vix, sp500, btc, etc.)
 - **Errors:** 500 `"Internal server error"` (no data)
 
-#### `GET /ipos/upcoming` 🔓
+#### `GET /ipos/upcoming` (public)
 Upcoming IPOs (halkarz.com WP API, 1 h cache).
 
 - **Query:** `after: str|null` (ISO date filter, default last 30 days)
 - **Response 200:** IPO list (JSON)
 
-#### `GET /ipos/draft` 🔓
+#### `GET /ipos/draft` (public)
 Draft IPOs.
 
 - **Query:** `after: str|null`
 - **Response 200:** IPO list
 
-#### `GET /ipos/active` 🔓
+#### `GET /ipos/active` (public)
 Active IPOs.
 
 - **Query:** `after: str|null`
 - **Response 200:** IPO list
 
-#### `GET /ipos/{slug}` 🔓
+#### `GET /ipos/{slug}` (public)
 Single IPO detail.
 
 - **Errors:** 404 `"IPO not found"`
 
 ### 8.6 Virtual Portfolios (`src/api/virtual_portfolio.py` + `src/services/portfolio.py`)
 
-> All portfolio endpoints are 🔐 (JWT). `portfolio_id` format: `port-<uuid>`. Data is JSONB; concurrency is protected with `pg_advisory_xact_lock(hashtext(portfolio_id))`. Commission rate: `PORTFOLIO_COMMISSION_RATE` (default 0.001 = 0.1%).
+> All portfolio endpoints are (JWT) (JWT). `portfolio_id` format: `port-<uuid>`. Data is JSONB; concurrency is protected with `pg_advisory_xact_lock(hashtext(portfolio_id))`. Commission rate: `PORTFOLIO_COMMISSION_RATE` (default 0.001 = 0.1%).
 > **Important:** adding transactions (`POST transactions`) only works while the **market is open** (`400 "Market is closed"`); the price is taken automatically from the current market price. Manually priced updates (`PUT transactions/{tx_id}`) are deliberately exempt from this check.
 
 #### `POST /portfolios`
@@ -687,37 +687,37 @@ Downloads transactions as CSV (`text/csv`).
 
 ### 8.7 Favorites (`src/api/favorites.py`)
 
-#### `POST /favorites/{ticker}` 🔐
+#### `POST /favorites/{ticker}` (JWT)
 Adds to favorites (idempotent — silently passes if already present).
 
 - **Response 200:** `{"message": "Added favorite XXX or already been added"}`
 - **Errors:** 404 invalid ticker; 400 `"Could not add to favorites"`
 
-#### `DELETE /favorites/{ticker}` 🔐
+#### `DELETE /favorites/{ticker}` (JWT)
 Removes from favorites.
 
 - **Response 200:** `{"message": "Removed XXX from favorites"}`
 
-#### `GET /favorites` 🔐
+#### `GET /favorites` (JWT)
 Favorite list.
 
 - **Response 200:** `{"favorites": ["THYAO", "ASELS", ...]}`
 
 ### 8.8 Bots (`src/api/bots.py`)
 
-#### `POST /bots` 🔐
+#### `POST /bots` (JWT)
 Creates a bot account (max 5/user). Bots spend the owner's credits; no email verification needed; **the password is returned only once in this response**.
 
 - **Body:** `{"username": str (3-255), "password": str|null (min 10)}` (if empty, a random 16-char password is generated)
 - **Response 200:** `{"id": 55, "username": "...", "email": "...@bot.florencex.com.tr", "password": "<one-time>"}`
 - **Errors:** 403 `"error_bots_not_allowed"` (bots cannot create bots); 400 `"error_bot_limit_reached"`; 409 `"error_username_taken"`
 
-#### `GET /bots` 🔐
+#### `GET /bots` (JWT)
 Bot list.
 
 - **Response 200:** `{"bots": [{id, username, created_at, last_login}]}`
 
-#### `DELETE /bots/{bot_id}` 🔐
+#### `DELETE /bots/{bot_id}` (JWT)
 Deletes a bot (own bots only).
 
 - **Response 200:** `{"message": "Bot {id} deleted"}`
@@ -725,12 +725,12 @@ Deletes a bot (own bots only).
 
 ### 8.9 Data Export (`src/api/export.py`, `src/api/exports.py`)
 
-#### `GET /user/export` 🔐
+#### `GET /user/export` (JWT)
 JSON dump of all user data (profile + favorites + reports + token usage + simulations).
 
 - **Response 200:** `{profile: {username, email, credits}, favorites: [{ticker_code, created_at}], reports: [{id, ticker, type, title, token_usage, content, created_at}], token_usage: [{model, prompt_tokens, completion_tokens, total_tokens, endpoint, created_at}], simulations: [{id, ticker, days, bounds, target, result, cost, created_at}]}`
 
-#### `POST /data/export` 🔐 (202 Accepted)
+#### `POST /data/export` (JWT) (202 Accepted)
 Queues a takeout-style yearly data export; a background worker prepares it and emails the download link. Idempotent: if an active record exists for the same user+year+format, the existing id is returned.
 
 - **Body:** `{"year": int (1990..current year+1), "format": "csv"|"json"}` (format default csv)
@@ -738,71 +738,71 @@ Queues a takeout-style yearly data export; a background worker prepares it and e
 - **Response 202:** `{"export_id": 5, "status": "queued"}`
 - **Errors:** 400 `"Invalid year"`
 
-#### `GET /data/export` 🔐
+#### `GET /data/export` (JWT)
 Export list.
 
 - **Response 200:** `[{id, year, format, status, created_at, updated_at, row_count, size_bytes, downloaded_count, expires_at, error, downloadable, download_url}]`
 
-#### `GET /data/export/download/{token}` 🔓
+#### `GET /data/export/download/{token}` (public)
 Public download (no auth, token is enough). Filename `florence-daily-{year}.{format}.gz`.
 
 - **Errors:** 404 `"Export not found"` / `"Export file missing"`; 410 `"Export link expired or not ready"` (status not ready/sent or expired)
 
-#### `GET /data/export/{export_id}` 🔐
+#### `GET /data/export/{export_id}` (JWT)
 Single export record (owner check).
 
 - **Response 200:** serialized record (as above)
 - **Errors:** 404 `"Export not found"`
 
-#### `GET /data/daily/{year}` 🔓
+#### `GET /data/daily/{year}` (public)
 **Deprecated** — always returns 410.
 
 - **Response 410:** `{"detail": "Kullanım dışı — POST /api/v1/data/export ile istek oluşturun"}`
 
 ### 8.10 Announcements (`src/api/announcements.py`)
 
-#### `GET /announcements` 🔐
+#### `GET /announcements` (JWT)
 Announcement list (only those published within the last 7 days; with `is_unread` flag).
 
 - **Response 200:** `{"announcements": [{id, title, content, sent_by, created_at, updated_at, is_unread}]}`
 
-#### `GET /announcements/{announcement_id}` 🔐
+#### `GET /announcements/{announcement_id}` (JWT)
 Single announcement.
 
 - **Errors:** 404 `"Announcement not found"`
 
-#### `POST /announcements` 🔐 (admin)
+#### `POST /announcements` (JWT) (admin)
 Creates an announcement.
 
 - **Body:** `{"title": str, "content": str}`
 - **Errors:** 403 `"Admin access required"`
 
-#### `PUT /announcements/{announcement_id}` 🔐 (admin)
+#### `PUT /announcements/{announcement_id}` (JWT) (admin)
 Updates an announcement.
 
 - **Body:** `{"title": str, "content": str}`
 - **Errors:** 403; 404 `"Announcement not found"`
 
-#### `DELETE /announcements/{announcement_id}` 🔐 (admin)
+#### `DELETE /announcements/{announcement_id}` (JWT) (admin)
 Deletes an announcement.
 
 - **Errors:** 403; 404
 
-#### `POST /announcements/read` 🔐
+#### `POST /announcements/read` (JWT)
 Marks all announcements as read (`last_announcement_viewed_at = NOW()`).
 
 - **Response 200:** `{"message": "Marked as read"}`
 
 ### 8.11 Advisor — Stock Recommendations (`src/api/fit.py`, `src/api/portfolio.py`)
 
-#### `POST /stocks/fit` 🔐 ⚙(advisor)
+#### `POST /stocks/fit` (JWT) (feature: advisor)
 Stock-vector similarity recommendations (risk/horizon/profitability scores).
 
 - **Body:** `{"horizon": "short"|"medium"|"long" (default long), "profitability": "low"|"medium"|"high" (default high), "risk_tolerance": "low"|"medium"|"high" (default medium), "limit": int 1-100 (default 5)}`
 - **Response 200:** `{"query": {"risk": 0.5, "horizon": 0.7, "profitability": 0.7}, "results": [{ticker, score, vector, ...}]}`
 - **Errors:** 400 `"Invalid filter value"`
 
-#### `POST /portfolio/profile` 🔐 ⚙(advisor)
+#### `POST /portfolio/profile` (JWT) (feature: advisor)
 "Stocks similar to my portfolio": Euclidean-nearest stocks to the average of the user's portfolio vectors.
 
 - **Body:** `{"tickers": [str (1-50, uppercased)], "limit": int 1-50 (default 5)}`
@@ -811,58 +811,58 @@ Stock-vector similarity recommendations (risk/horizon/profitability scores).
 
 ### 8.12 Other Public Endpoints
 
-#### `GET /market/status` 🔓
+#### `GET /market/status` (public)
 BIST open/closed + public holiday (Redis 60 s cache). Market hours: 10:00–18:10 (Europe/Istanbul), open on weekdays and non-holidays.
 
 - **Response 200:** `{"open": true, "next_open_at": "2026-08-17T10:00:00+03:00"|null, "timezone": "Europe/Istanbul", "is_holiday": false, "holiday_name": null, "as_of": "..."}`
 
-#### `GET /maintenance` 🔓
+#### `GET /maintenance` (public)
 List of disabled features.
 
 - **Response 200:** `{"disabled_features": []}` (set members: `report_generate`, `simulation`, `news`, `advisor`)
 
-#### `GET /meta/avatars` 🔓
+#### `GET /meta/avatars` (public)
 Avatar id list.
 
 - **Response 200:** `[{"id": "avatar-1", "url": "/avatars/avatar-1.svg"}, ... 12 items]`
 
-#### `GET /legal?policy=&lang=` 🔓
+#### `GET /legal?policy=&lang=` (public)
 Legal text. `policy: "terms"|"privacy_policy"|"cookie_policy"|"disclaimer"`, `lang: "tr"|"en"` (default tr).
 
 - **Response 200:** `{"policy", "lang", "last_updated": "2026-07-22", "content": "<text>"}`
 - **Errors:** 404 unknown policy; 400 invalid lang
 
-#### `GET /legal/all?lang=` 🔓
+#### `GET /legal/all?lang=` (public)
 All legal texts.
 
 - **Response 200:** `{"last_updated", "lang", "policies": {"terms": ..., "privacy_policy": ..., ...}}`
 
-#### `GET /about?lang=` 🔓
+#### `GET /about?lang=` (public)
 About text (`"tr"|"en"`).
 
 - **Response 200:** `{"lang", "content"}`
 
-#### `GET /contact` 🔓
+#### `GET /contact` (public)
 Contact information.
 
 - **Response 200:** the `CONTACT` constant
 
-#### `GET /version` 🔓
+#### `GET /version` (public)
 Application version.
 
 - **Response 200:** `{"version": "0.5.7"}`
 
-#### `GET /contributors` 🔓
+#### `GET /contributors` (public)
 Contributors.
 
 - **Response 200:** `{"contributors": [{nickname, picture_url, github_url}]}`
 
-#### `GET /` and `GET /health` 🔓
+#### `GET /` and `GET /health` (public)
 Health checks.
 
 - **Response 200:** `{}` and `{"status": "ok"}`
 
-#### `POST /analytics/event` 🔐 (via middleware; the path itself is excluded from middleware analytics tracking)
+#### `POST /analytics/event` (JWT) (via middleware; the path itself is excluded from middleware analytics tracking)
 Batch analytics events (fire-and-forget).
 
 - **Body:** `[{event_type: str, ticker: str|null, details: dict|null, ...}, ...]` — max 100 items

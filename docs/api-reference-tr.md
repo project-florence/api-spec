@@ -1,6 +1,6 @@
 # Florence API Referansı (Türkçe)
 
-> **Kaynak:** `/home/efe/Belgeler/florence/backend` — canlı FastAPI uygulaması (sürüm: `src/version.py`).
+> **Kaynak:** Florence backend repo'su — canlı FastAPI uygulaması (sürüm: `src/version.py`).
 > **Üretim:** 2026-08-14 — tüm endpoint'ler `src/api/` router dosyalarından kod düzeyinde doğrulanmıştır; şemalar Pydantic modellerinden birebir alınmıştır.
 > **Eşleşen İngilizce doküman:** [`api-reference-en.md`](./api-reference-en.md) (birebir kapsam).
 
@@ -223,12 +223,12 @@ Redis proxy (`src/core/redis.py`) **down-tolerant**: bağlantı kurulamazsa tüm
 
 ## 8. Endpoint Referansı
 
-> Kısaltmalar: 🔓 = public (auth gerekmez), 🔐 = JWT gerekli, ⚙ = feature kill-switch'e tabi, ⏳ = job slot'a tabi.
+> Kısaltmalar: (public) = public (auth gerekmez), (JWT) = JWT gerekli, (feature) = feature kill-switch'e tabi, (slot) = job slot'a tabi.
 > Tüm path'ler `/api/v1` prefix'i altındadır. Auth yöntemi: `Authorization: Bearer <access_token>` header veya `access_token` cookie.
 
 ### 8.1 Auth & Kullanıcı (`src/api/auth.py`)
 
-#### `POST /auth/register` 🔓
+#### `POST /auth/register` (public)
 Kullanıcı kaydı. E-posta doğrulama token'ı (24 saat) üretir ve mail gönderir.
 
 - **Body:** `{"username": str, "email": str, "password": str (min 10)}`
@@ -239,7 +239,7 @@ Kullanıcı kaydı. E-posta doğrulama token'ı (24 saat) üretir ve mail gönde
 ```
 - **Hatalar:** 400 `"error_username_taken"` / `"error_email_taken"`; 500 `"Database error"`
 
-#### `POST /auth/login` 🔓
+#### `POST /auth/login` (public)
 OAuth2 form girişi — `application/x-www-form-urlencoded`, alanlar: `username` (kullanıcı adı **veya** e-posta), `password`.
 
 - **Rate limit:** 5/dk/username
@@ -249,14 +249,14 @@ OAuth2 form girişi — `application/x-www-form-urlencoded`, alanlar: `username`
 ```
 - **Hatalar:** 400 `"error_login_failed"`; 403 `"error_email_not_verified"` (doğrulanmamış hesap, bot hariç)
 
-#### `GET /auth/verify-email` 🔓
+#### `GET /auth/verify-email` (public)
 E-posta doğrulama.
 
 - **Query:** `token: str` (zorunlu)
 - **Yanıt 200:** `{"message": "Email verified", "email_verified": true}`
 - **Hatalar:** 400 `"Invalid or expired verification token"`
 
-#### `POST /auth/resend-verification` 🔓
+#### `POST /auth/resend-verification` (public)
 Doğrulama mailini yeniden gönderir.
 
 - **Body:** `{"username_or_email": str}`
@@ -264,7 +264,7 @@ Doğrulama mailini yeniden gönderir.
 - **Yanıt 200:** `{"verification_sent": bool}`
 - **Hatalar:** 404 `"User not found"`; 400 `"Email already verified"`
 
-#### `POST /auth/refresh` 🔓
+#### `POST /auth/refresh` (public)
 Refresh token rotasyonu + yeni access token.
 
 - **Body (opsiyonel):** `{"refresh_token": str}` — yoksa cookie'den okunur
@@ -272,40 +272,40 @@ Refresh token rotasyonu + yeni access token.
 - **Yanıt 200:** `{"access_token", "refresh_token", "token_type": "bearer"}` + cookie'ler yenilenir
 - **Hatalar:** 401 `"Invalid or expired refresh token"`; 403 `"error_email_not_verified"`
 
-#### `POST /auth/logout` 🔓
+#### `POST /auth/logout` (public)
 Refresh token'ı revoke eder, cookie'leri temizler.
 
 - **Body:** `{"refresh_token": str}` (cookie de kabul edilir)
 - **Yanıt 200:** `{"message": "Logged out"}`
 
-#### `DELETE /auth/delete` 🔐
+#### `DELETE /auth/delete` (JWT)
 Hesabı kalıcı siler.
 
 - **Yanıt 200:** `{"message": "Deleted user {id}"}`
 - **Hatalar:** 400 `"Database error"`
 
-#### `PUT /auth/change-password` 🔐
+#### `PUT /auth/change-password` (JWT)
 Şifre değiştirir → `password_changed_at` güncellenir, tüm refresh token'lar revoke edilir.
 
 - **Body:** `{"current_password": str, "new_password": str (min 10)}`
 - **Yanıt 200:** `{"message": "Password changed successfully"}`
 - **Hatalar:** 404 `"User not found"`; 400 `"Current password is incorrect"`
 
-#### `PUT /auth/change-email` 🔐
+#### `PUT /auth/change-email` (JWT)
 E-posta değiştirir → tüm token'lar revoke edilir.
 
 - **Body:** `{"new_email": str, "current_password": str}`
 - **Yanıt 200:** `{"message": "Email changed successfully", "new_email": "..."}`
 - **Hatalar:** 400 `"Email already in use"` / `"Current password is incorrect"`
 
-#### `PUT /auth/change-username` 🔐
+#### `PUT /auth/change-username` (JWT)
 Kullanıcı adı değiştirir → tüm token'lar revoke edilir.
 
 - **Body:** `{"new_username": str, "current_password": str}`
 - **Yanıt 200:** `{"message": "Username changed successfully", "new_username": "..."}`
 - **Hatalar:** 400 `"Username already in use"`
 
-#### `GET /profile` 🔐
+#### `GET /profile` (JWT)
 Profil + kredi bakiyesi.
 
 - **Yanıt 200:**
@@ -317,25 +317,25 @@ Profil + kredi bakiyesi.
 }
 ```
 
-#### `PUT /profile/avatar` 🔐
+#### `PUT /profile/avatar` (JWT)
 Avatar değiştirir.
 
 - **Body:** `{"avatar_id": "avatar-1"}` … `"avatar-12"`
 - **Yanıt 200:** `{"message": "Avatar updated", "avatar_id": "..."}`
 - **Hatalar:** 400 `"Unknown avatar_id"`
 
-#### `GET /credits` 🔐
+#### `GET /credits` (JWT)
 Kredi bakiyesi.
 
 - **Yanıt 200:** `{"credits": 18.5}`
 
-#### `GET /user/preferences` 🔐
+#### `GET /user/preferences` (JWT)
 JSONB kullanıcı tercihleri.
 
 - **Yanıt 200:** ham JSONB nesnesi (ör. `{"theme": "dark", "language": "tr"}`)
 - **Hatalar:** 404 `"Preferences not found"`
 
-#### `PUT /user/preferences` 🔐
+#### `PUT /user/preferences` (JWT)
 Tercihleri günceller (mevcut prefs ile **merge** edilir).
 
 - **Body:** `{"prefs": {"theme": "light"}}`
@@ -343,74 +343,74 @@ Tercihleri günceller (mevcut prefs ile **merge** edilir).
 
 ### 8.2 BIST / Şirket / Fiyat (`src/api/bist.py`, `src/api/stats.py`)
 
-#### `GET /bist/companies` 🔓
+#### `GET /bist/companies` (public)
 BIST şirket listesi (Redis'ten, 30 gün TTL).
 
 - **Query:** `sort: "alphabetical"|"popular"` (vars. alphabetical), `offset: int ≥0` (vars. 0), `limit: int 1-500` (vars. 50)
 - **Yanıt 200:** şirket dict listesi (`ticker`, `name`, …) — `popular` sıralamasında offset+limit kadar popüler şirket çekilip dilimlenir
 
-#### `GET /bist/tickers` 🔓
+#### `GET /bist/tickers` (public)
 Ticker listesi.
 
 - **Query:** aynı: `sort`, `offset`, `limit`
 - **Yanıt 200:** ticker string listesi (popüler sıralama için `get_popular_tickers`)
 
-#### `GET /companies/search` 🔓
+#### `GET /companies/search` (public)
 Şirket metin araması (alias'lar desteklenir: "IS BANK" → ISCTR).
 
 - **Query:** `query: str` (zorunlu)
 - **Yanıt 200:** `search_companies_by_text` sonucu
 
-#### `GET /companies/info/{ticker}` 🔓
+#### `GET /companies/info/{ticker}` (public)
 yfinance tabanlı yapılandırılmış şirket profili. `ticker` BIST kodu olmalı (`.IS` eklenir).
 
 - **Path:** `ticker` (geçersizse 404 `"Invalid BIST ticker: X"`)
 - **Yanıt 200:** profile dict — `symbol`, `name`, `sector`, `industry`, `currency`, `exchange`, `market{currentPrice, previousClose, marketCap, dayHigh, dayLow, regularMarketVolume, fiftyTwoWeekHigh, fiftyTwoWeekLow, regularMarketTime}`, `trading{beta, sharesOutstanding, floatShares, averageVolume, averageVolume10days, fiftyDayAverage, twoHundredDayAverage, shortRatio, heldPercentInsiders, heldPercentInstitutions}`, `valuation{trailingPE, forwardPE, pegRatio, priceToBook, priceToSalesTrailing12Months, enterpriseValue, enterpriseToEbitda, enterpriseToRevenue, bookValue, trailingEps, forwardEps, dividendYield, payoutRatio, targetMeanPrice, targetHighPrice, targetLowPrice, recommendationKey, numberOfAnalystOpinions}`, `financials{totalRevenue, revenuePerShare, revenueGrowth, grossProfits, grossMargins, ebitda, ebitdaMargins, netIncomeToCommon, profitMargins, operatingMargins, operatingCashflow, freeCashflow, earningsGrowth, earningsQuarterlyGrowth, returnOnEquity, returnOnAssets}`, `balanceSheet{totalCash, totalCashPerShare, totalDebt, debtToEquity, currentRatio, quickRatio}`, `recommendations: []`
 
-#### `GET /companies/info/{ticker}/md` 🔓
+#### `GET /companies/info/{ticker}/md` (public)
 Aynı profil, **markdown metni** olarak (`text/markdown; charset=utf-8`).
 
-#### `GET /companies/summary` 🔓
+#### `GET /companies/summary` (public)
 Özet tablo.
 
 - **Query:** `limit: int 1-500` (vars. 50), `offset: int ≥0`, `sort: popular|alphabetical|gainers|losers|price_high|price_low|volume|market_cap` (vars. popular), `tickers: str|null` (virgülle ayrılmış filtre)
 - **Yanıt 200:** `{total, data: [{ticker, name, price, change_pct, ...}]}` yapısında özet
 
-#### `GET /news/{ticker}` 🔐 ⚙(news)
+#### `GET /news/{ticker}` (JWT) (feature: news)
 Hisse haberleri (GDELT/BigQuery, son 90 gün, Türkçe).
 
 - **Path:** `ticker`; **Query:** `amount: int 1-50` (vars. 10)
 - **Rate limit:** 10/dk/kullanıcı+ticker (admin 100/dk)
 - **Yanıt 200:** `[{url, title, lang, date}]` listesi (date ISO8601)
 
-#### `GET /price/history/{ticker}` 🔓
+#### `GET /price/history/{ticker}` (public)
 Mum verisi (yfinance + `price_candles` DB tablosu).
 
 - **Path:** `ticker`; **Query:** `period: "1d"|"5d"|"1mo"|"3mo"|"6mo"|"1y"|"2y"|"5y"|"10y"|"ytd"|"max"` (vars. 1mo), `interval: "5m"|"30m"|"1h"|"1d"|"5d"|"1wk"|"1mo"|"3mo"` (vars. 1d)
 - **Kısıt:** interval başına maksimum gün: 5m→60, 30m→60, 1h→730, 1d/5d/1wk/1mo/3mo→3650. Aşılırsa 400.
 - **Yanıt 200:** `[{ts, open, high, low, close, volume}]` listesi
 
-#### `GET /price/current` 🔓
+#### `GET /price/current` (public)
 Anlık fiyat + değişim (quote mantığı).
 
 - **Query:** `ticker: str` (zorunlu), `interval: "5m"|"30m"|"1h"|"1d"` (vars. 5m)
 - **Yanıt 200:** `{ticker, price, previous_close, absolute_change, change_pct, as_of, previous_close_as_of, market_status ("open"|"closed"), is_stale, change_window, interval}`
 - **Hatalar:** 404 `"Price not found"` (fiyat yoksa)
 
-#### `GET /stats/top` 🔓
+#### `GET /stats/top` (public)
 En çok işlem gören ticker'lar (ticker_stats toplamına göre).
 
 - **Query:** `limit: int` (vars. 50)
 - **Yanıt 200:** `[{ticker, name, info_count, report_count, news_count, history_count, simulation_count, favorite_count, total}]`
 
-#### `GET /stats/{ticker}` 🔓
+#### `GET /stats/{ticker}` (public)
 Tek ticker'ın istatistikleri.
 
 - **Yanıt 200:** `{info_count, report_count, news_count, history_count, simulation_count, favorite_count, ticker: "XXX"}`
 
 ### 8.3 Raporlar (`src/api/reports.py`)
 
-#### `POST /reports/generate` 🔐 ⚙(report_generate) ⏳(report, 900s)
+#### `POST /reports/generate` (JWT) (feature: report_generate) (slot: report, 900s)
 LLM tabanlı yatırım raporu üretir. Kredi: tahmini maliyet çekilir (`estimated_cost`), gerçek token kullanımına göre iade/ek tahsilat yapılır.
 
 - **Query:** `ticker: str` (zorunlu, geçerli BIST kodu), `type: "quick_report"|"deep_report"` (zorunlu), `purpose: str|null (max 500)` (opsiyonel kullanıcı sorusu)
@@ -428,31 +428,31 @@ LLM tabanlı yatırım raporu üretir. Kredi: tahmini maliyet çekilir (`estimat
 - **Hatalar:** 400 `"Invalid type"`; 402 yetersiz kredi; 500 `"Report generation failed"` (kredi iade edilir)
 - **Not:** İstek eşzamanlı tek raporla sınırlıdır (job slot); süre 30-60s+ olabilir.
 
-#### `GET /reports/info` 🔓 (auth dep'i yok; middleware public listesinde de değil — token yoksa 401 alırsınız)
+#### `GET /reports/info` (public) (auth dep'i yok; middleware public listesinde de değil — token yoksa 401 alırsınız)
 Rapor tipleri, maliyetler ve endpoint dokümantasyonu.
 
 - **Yanıt 200:** `{quick_report: {type, name_en, name_tr, description, description_tr, est_cost}, deep_report: {...}, token_cost_per_1k, endpoints: {generate, history, search, detail}}`
 
-#### `GET /reports/history` 🔐
+#### `GET /reports/history` (JWT)
 Kullanıcının rapor geçmişi.
 
 - **Query:** `sort: "created_at"|"ticker"` (vars. created_at), `order: "asc"|"desc"` (vars. desc)
 - **Yanıt 200:** `[ReportHistoryItem]` — `{id, ticker, type, title|null, token_usage|null, purpose|null, created_at}`
 - **Hatalar:** 400 geçersiz sort/order (`"Invalid sort. Allowed: ['created_at', 'ticker']"`)
 
-#### `GET /reports/search` 🔐
+#### `GET /reports/search` (JWT)
 Başlık/içerikte ILIKE araması (yalnızca kullanıcının kendi raporları).
 
 - **Query:** `q: str (min 1)` (zorunlu), `sort`, `order`, `limit: int 1-100` (vars. 20), `offset: int ≥0`
 - **Yanıt 200:** `[ReportHistoryItem]`
 
-#### `GET /reports/{report_id}` 🔐
+#### `GET /reports/{report_id}` (JWT)
 Tek rapor (sahibi kontrolü).
 
 - **Yanıt 200:** `{success, report_id, about (ticker), type, title, token_usage, purpose, report (markdown), sentiments, created_at}`
 - **Hatalar:** 404 `"Report not found or you do not have permission to view it."`
 
-#### `POST /reports/download` 🔐
+#### `POST /reports/download` (JWT)
 Raporu md/docx/pdf olarak indirir (pandoc; docx/pdf üretimi thread'de).
 
 - **Query:** `report_id: int` (zorunlu), `ftype: "md"|"docx"|"pdf"` (zorunlu)
@@ -461,30 +461,30 @@ Raporu md/docx/pdf olarak indirir (pandoc; docx/pdf üretimi thread'de).
 
 ### 8.4 Simülasyonlar (`src/api/simulations.py`)
 
-#### `GET /simulations/per-day-cost` 🔐
+#### `GET /simulations/per-day-cost` (JWT)
 Günlük simülasyon maliyeti.
 
 - **Yanıt 200:** `{"per_day_cost": 0.005, "round": 3}`
 
-#### `GET /simulations/estimate-cost/{ticker}` 🔐
+#### `GET /simulations/estimate-cost/{ticker}` (JWT)
 Maliyet tahmini.
 
 - **Query:** `days: int 1-370` (zorunlu)
 - **Yanıt 200:** `{"cost": 1.85}` (days × 0.005, 3 basamak)
 
-#### `GET /simulations/history` 🔐
+#### `GET /simulations/history` (JWT)
 Geçmiş simülasyonlar.
 
 - **Query:** `limit: int 1-100` (vars. 20), `offset: int ≥0`
 - **Yanıt 200:** `[{id, ticker, days, bounds, target, cost, created_at}]`
 
-#### `GET /simulations/history/{sim_id}` 🔐
+#### `GET /simulations/history/{sim_id}` (JWT)
 Simülasyon detayı.
 
 - **Yanıt 200:** `{id, ticker, days, bounds, target, result (JSONB), cost, created_at}`
 - **Hatalar:** 404 `"Simulation not found"`
 
-#### `GET /simulations/{ticker}` 🔐 ⚙(simulation) ⏳(simulation, 600s)
+#### `GET /simulations/{ticker}` (JWT) (feature: simulation) (slot: simulation, 600s)
 Monte Carlo simülasyonu çalıştırır (CPU-yoğun, thread'de).
 
 - **Path:** `ticker` (geçerli BIST kodu); **Query:** `days: int 1-370` (zorunlu), `bounds: str` (vars. "0.05" — güven aralığı yüzdesi), `target: str|null` (hedef fiyat; verilmezse otomatik = güncel fiyat + %10, direction "above")
@@ -503,65 +503,65 @@ Monte Carlo simülasyonu çalıştırır (CPU-yoğun, thread'de).
 
 ### 8.5 Ekonomi / Makro / IPO (`src/api/economy.py`, `src/api/ipo.py`)
 
-#### `GET /economy/gold-prices` 🔓
+#### `GET /economy/gold-prices` (public)
 Altın fiyatları (GenelPara, 20 dk cache). Anahtarlar: `gram-altin`, `ceyrek-altin`, `ons`, `gram-has-altin`, `yarim-altin`, `tam-altin`, `cumhuriyet-altini`, `ata-altin`, `14-ayar-altin`, `18-ayar-altin`, `22-ayar-bilezik`, `ikibucuk-altin`, `besli-altin`, `gremse-altin`, `resat-altin`, `hamit-altin`.
 
 - **Yanıt 200:** `{"gram-altin": {"Buying": "3.450,50", "Selling": "3.470,00", "Change": "%0,42", "Type": "Gold"}, ...}`
 - **Not:** `Buying`/`Selling` değerleri Türkçe virgül-ondalık **string** olarak döner; `Change` `%x.xx` formatında string.
 
-#### `GET /economy/silver-price` 🔓
+#### `GET /economy/silver-price` (public)
 Gümüş fiyatı.
 
 - **Yanıt 200:** `{"gumus": {"Buying", "Selling", "Change", "Type": "Gold"}}`
 
-#### `GET /economy/gram-platinum-price` 🔓
+#### `GET /economy/gram-platinum-price` (public)
 Gram platin.
 
 - **Yanıt 200:** `{"gram-platin": {"Buying", "Selling", "Change", "Type": "Commodity"}}`
 
-#### `GET /economy/gram-palladium-price` 🔓
+#### `GET /economy/gram-palladium-price` (public)
 Gram paladyum.
 
 - **Yanıt 200:** `{"gram-paladyum": {"Buying", "Selling", "Change", "Type": "Commodity"}}`
 
-#### `GET /economy/currency` 🔓
+#### `GET /economy/currency` (public)
 Döviz kurları (TRY hariç).
 
 - **Query:** `symbols: str|null` (virgülle ayrılmış filtre, ör. `USD,EUR`; verilmezse tümü)
 - **Yanıt 200:** `{"USD": {"Buying": "40,25", "Selling": "40,30", "Change": "%0,10", "Type": "Currency"}, "EUR": {...}, ...}`
 
-#### `GET /macroeconomy` 🔓
+#### `GET /macroeconomy` (public)
 FRED makroekonomik göstergeleri (14 seri, 24 saat cache).
 
 - **Yanıt 200:** makro veri dict'i (gdp, fed_funds, vix, sp500, btc vb.)
 - **Hatalar:** 500 `"Internal server error"` (veri yoksa)
 
-#### `GET /ipos/upcoming` 🔓
+#### `GET /ipos/upcoming` (public)
 Yaklaşan halka arzlar (halkarz.com WP API, 1 saat cache).
 
 - **Query:** `after: str|null` (ISO tarih filtresi, vars. son 30 gün)
 - **Yanıt 200:** IPO listesi (JSON)
 
-#### `GET /ipos/draft` 🔓
+#### `GET /ipos/draft` (public)
 Taslak (başvuru) halka arzlar.
 
 - **Query:** `after: str|null`
 - **Yanıt 200:** IPO listesi
 
-#### `GET /ipos/active` 🔓
+#### `GET /ipos/active` (public)
 Aktif halka arzlar.
 
 - **Query:** `after: str|null`
 - **Yanıt 200:** IPO listesi
 
-#### `GET /ipos/{slug}` 🔓
+#### `GET /ipos/{slug}` (public)
 Tek IPO detayı.
 
 - **Hatalar:** 404 `"IPO not found"`
 
 ### 8.6 Sanal Portföyler (`src/api/virtual_portfolio.py` + `src/services/portfolio.py`)
 
-> Tüm portföy endpoint'leri 🔐 (JWT). `portfolio_id` formatı: `port-<uuid>`. Veriler JSONB; eşzamanlılık `pg_advisory_xact_lock(hashtext(portfolio_id))` ile korunur. Komisyon oranı `PORTFOLIO_COMMISSION_RATE` (vars. 0.001 = %0.1).
+> Tüm portföy endpoint'leri (JWT) (JWT). `portfolio_id` formatı: `port-<uuid>`. Veriler JSONB; eşzamanlılık `pg_advisory_xact_lock(hashtext(portfolio_id))` ile korunur. Komisyon oranı `PORTFOLIO_COMMISSION_RATE` (vars. 0.001 = %0.1).
 > **Önemli:** İşlem ekleme (`POST transactions`) yalnızca **piyasa açıkken** çalışır (`400 "Market is closed"`); fiyat otomatik olarak güncel piyasa fiyatıdır. Fiyat/quantity elle girilen güncelleme (`PUT transactions/{tx_id}`) bu kontrolden muaftır.
 
 #### `POST /portfolios`
@@ -687,37 +687,37 @@ Tek istekte özet: portföy bilgisi + değerleme + çeşitlendirme + performans 
 
 ### 8.7 Favoriler (`src/api/favorites.py`)
 
-#### `POST /favorites/{ticker}` 🔐
+#### `POST /favorites/{ticker}` (JWT)
 Favorilere ekler (idempotent — zaten varsa sessizce geçer).
 
 - **Yanıt 200:** `{"message": "Added favorite XXX or already been added"}`
 - **Hatalar:** 404 geçersiz ticker; 400 `"Could not add to favorites"`
 
-#### `DELETE /favorites/{ticker}` 🔐
+#### `DELETE /favorites/{ticker}` (JWT)
 Favorilerden çıkarır.
 
 - **Yanıt 200:** `{"message": "Removed XXX from favorites"}`
 
-#### `GET /favorites` 🔐
+#### `GET /favorites` (JWT)
 Favori listesi.
 
 - **Yanıt 200:** `{"favorites": ["THYAO", "ASELS", ...]}`
 
 ### 8.8 Botlar (`src/api/bots.py`)
 
-#### `POST /bots` 🔐
+#### `POST /bots` (JWT)
 Bot hesabı oluşturur (max 5/kullanıcı). Bot'lar owner kredisinden harcar; e-posta doğrulaması gerekmez; **şifre yalnızca bu yanıtta bir kez döner**.
 
 - **Body:** `{"username": str (3-255), "password": str|null (min 10)}` (password boşsa rastgele 16 karakter üretilir)
 - **Yanıt 200:** `{"id": 55, "username": "...", "email": "...@bot.florencex.com.tr", "password": "<tek seferlik>"}`
 - **Hatalar:** 403 `"error_bots_not_allowed"` (bot hesap bot açamaz); 400 `"error_bot_limit_reached"`; 409 `"error_username_taken"`
 
-#### `GET /bots` 🔐
+#### `GET /bots` (JWT)
 Bot listesi.
 
 - **Yanıt 200:** `{"bots": [{id, username, created_at, last_login}]}`
 
-#### `DELETE /bots/{bot_id}` 🔐
+#### `DELETE /bots/{bot_id}` (JWT)
 Bot siler (yalnızca kendi botu).
 
 - **Yanıt 200:** `{"message": "Bot {id} deleted"}`
@@ -725,12 +725,12 @@ Bot siler (yalnızca kendi botu).
 
 ### 8.9 Veri Dışa Aktarım (`src/api/export.py`, `src/api/exports.py`)
 
-#### `GET /user/export` 🔐
+#### `GET /user/export` (JWT)
 Tüm kullanıcı verisinin JSON dump'ı (profil + favoriler + raporlar + token kullanımı + simülasyonlar).
 
 - **Yanıt 200:** `{profile: {username, email, credits}, favorites: [{ticker_code, created_at}], reports: [{id, ticker, type, title, token_usage, content, created_at}], token_usage: [{model, prompt_tokens, completion_tokens, total_tokens, endpoint, created_at}], simulations: [{id, ticker, days, bounds, target, result, cost, created_at}]}`
 
-#### `POST /data/export` 🔐 (202 Accepted)
+#### `POST /data/export` (JWT) (202 Accepted)
 Takeout tarzı yıllık veri dışa aktarımı kuyruğa alır; arka plan işçisi hazırlar, e-posta ile indirme linki gönderilir. Idempotent: aynı kullanıcı+year+format için aktif kayıt varsa mevcut id döner.
 
 - **Body:** `{"year": int (1990..şimdiki yıl+1), "format": "csv"|"json"}` (format vars. csv)
@@ -738,71 +738,71 @@ Takeout tarzı yıllık veri dışa aktarımı kuyruğa alır; arka plan işçis
 - **Yanıt 202:** `{"export_id": 5, "status": "queued"}`
 - **Hatalar:** 400 `"Invalid year"`
 
-#### `GET /data/export` 🔐
+#### `GET /data/export` (JWT)
 Export listesi.
 
 - **Yanıt 200:** `[{id, year, format, status, created_at, updated_at, row_count, size_bytes, downloaded_count, expires_at, error, downloadable, download_url}]`
 
-#### `GET /data/export/download/{token}` 🔓
+#### `GET /data/export/download/{token}` (public)
 Public indirme (auth yok, token yeterli). Dosya adı `florence-daily-{year}.{format}.gz`.
 
 - **Hatalar:** 404 `"Export not found"` / `"Export file missing"`; 410 `"Export link expired or not ready"` (status ready/sent değilse veya süresi dolmuşsa)
 
-#### `GET /data/export/{export_id}` 🔐
+#### `GET /data/export/{export_id}` (JWT)
 Tek export kaydı (sahibi kontrolü).
 
 - **Yanıt 200:** serialize edilmiş kayıt (yukarıdaki gibi)
 - **Hatalar:** 404 `"Export not found"`
 
-#### `GET /data/daily/{year}` 🔓
+#### `GET /data/daily/{year}` (public)
 **Kullanım dışı** — her zaman 410 döner.
 
 - **Yanıt 410:** `{"detail": "Kullanım dışı — POST /api/v1/data/export ile istek oluşturun"}`
 
 ### 8.10 Duyurular (`src/api/announcements.py`)
 
-#### `GET /announcements` 🔐
+#### `GET /announcements` (JWT)
 Duyuru listesi (yalnızca son 7 gün içinde yayınlananlar; `is_unread` işareti ile).
 
 - **Yanıt 200:** `{"announcements": [{id, title, content, sent_by, created_at, updated_at, is_unread}]}`
 
-#### `GET /announcements/{announcement_id}` 🔐
+#### `GET /announcements/{announcement_id}` (JWT)
 Tek duyuru.
 
 - **Hatalar:** 404 `"Announcement not found"`
 
-#### `POST /announcements` 🔐 (admin)
+#### `POST /announcements` (JWT) (admin)
 Duyuru oluşturur.
 
 - **Body:** `{"title": str, "content": str}`
 - **Hatalar:** 403 `"Admin access required"`
 
-#### `PUT /announcements/{announcement_id}` 🔐 (admin)
+#### `PUT /announcements/{announcement_id}` (JWT) (admin)
 Duyuru günceller.
 
 - **Body:** `{"title": str, "content": str}`
 - **Hatalar:** 403; 404 `"Announcement not found"`
 
-#### `DELETE /announcements/{announcement_id}` 🔐 (admin)
+#### `DELETE /announcements/{announcement_id}` (JWT) (admin)
 Duyuru siler.
 
 - **Hatalar:** 403; 404
 
-#### `POST /announcements/read` 🔐
+#### `POST /announcements/read` (JWT)
 Tüm duyuruları okundu işaretler (`last_announcement_viewed_at = NOW()`).
 
 - **Yanıt 200:** `{"message": "Marked as read"}`
 
 ### 8.11 Danışman — Hisse Önerisi (`src/api/fit.py`, `src/api/portfolio.py`)
 
-#### `POST /stocks/fit` 🔐 ⚙(advisor)
+#### `POST /stocks/fit` (JWT) (feature: advisor)
 Stock-vector benzerlik önerisi (risk/horizon/profitability skorları).
 
 - **Body:** `{"horizon": "short"|"medium"|"long" (vars. long), "profitability": "low"|"medium"|"high" (vars. high), "risk_tolerance": "low"|"medium"|"high" (vars. medium), "limit": int 1-100 (vars. 5)}`
 - **Yanıt 200:** `{"query": {"risk": 0.5, "horizon": 0.7, "profitability": 0.7}, "results": [{ticker, score, vector, ...}]}`
 - **Hatalar:** 400 `"Invalid filter value"`
 
-#### `POST /portfolio/profile` 🔐 ⚙(advisor)
+#### `POST /portfolio/profile` (JWT) (feature: advisor)
 "Bana benzer hisse öner": kullanıcının portföy vektörlerinin ortalamasına Euclidean en yakın hisseler.
 
 - **Body:** `{"tickers": [str (1-50, uppercase)], "limit": int 1-50 (vars. 5)}`
@@ -811,58 +811,58 @@ Stock-vector benzerlik önerisi (risk/horizon/profitability skorları).
 
 ### 8.12 Diğer Public Endpoint'ler
 
-#### `GET /market/status` 🔓
+#### `GET /market/status` (public)
 BIST açık/kapalı + resmi tatil (Redis 60s cache). Piyasa saatleri: 10:00–18:10 (Europe/Istanbul), hafta içi + resmi tatil değilse açık.
 
 - **Yanıt 200:** `{"open": true, "next_open_at": "2026-08-17T10:00:00+03:00"|null, "timezone": "Europe/Istanbul", "is_holiday": false, "holiday_name": null, "as_of": "..."}`
 
-#### `GET /maintenance` 🔓
+#### `GET /maintenance` (public)
 Devre dışı feature listesi.
 
 - **Yanıt 200:** `{"disabled_features": []}` (küme üyeleri: `report_generate`, `simulation`, `news`, `advisor`)
 
-#### `GET /meta/avatars` 🔓
+#### `GET /meta/avatars` (public)
 Avatar id listesi.
 
 - **Yanıt 200:** `[{"id": "avatar-1", "url": "/avatars/avatar-1.svg"}, ... 12 adet]`
 
-#### `GET /legal?policy=&lang=` 🔓
+#### `GET /legal?policy=&lang=` (public)
 Yasal metin. `policy: "terms"|"privacy_policy"|"cookie_policy"|"disclaimer"`, `lang: "tr"|"en"` (vars. tr).
 
 - **Yanıt 200:** `{"policy", "lang", "last_updated": "2026-07-22", "content": "<metin>"}`
 - **Hatalar:** 404 bilinmeyen policy; 400 geçersiz lang
 
-#### `GET /legal/all?lang=` 🔓
+#### `GET /legal/all?lang=` (public)
 Tüm yasal metinler.
 
 - **Yanıt 200:** `{"last_updated", "lang", "policies": {"terms": ..., "privacy_policy": ..., ...}}`
 
-#### `GET /about?lang=` 🔓
+#### `GET /about?lang=` (public)
 Hakkında metni (`"tr"|"en"`).
 
 - **Yanıt 200:** `{"lang", "content"}`
 
-#### `GET /contact` 🔓
+#### `GET /contact` (public)
 İletişim bilgileri.
 
 - **Yanıt 200:** `CONTACT` sabiti
 
-#### `GET /version` 🔓
+#### `GET /version` (public)
 Uygulama sürümü.
 
 - **Yanıt 200:** `{"version": "0.5.7"}`
 
-#### `GET /contributors` 🔓
+#### `GET /contributors` (public)
 Katkıda bulunanlar.
 
 - **Yanıt 200:** `{"contributors": [{nickname, picture_url, github_url}]}`
 
-#### `GET /` ve `GET /health` 🔓
+#### `GET /` ve `GET /health` (public)
 Health check.
 
 - **Yanıt 200:** `{}` ve `{"status": "ok"}`
 
-#### `POST /analytics/event` 🔐 (middleware üzerinden; path middleware'de analytics'e kaydedilmez)
+#### `POST /analytics/event` (JWT) (middleware üzerinden; path middleware'de analytics'e kaydedilmez)
 Toplu analitik olay (fire-and-forget).
 
 - **Body:** `[{event_type: str, ticker: str|null, details: dict|null, ...}, ...]` — max 100 öğe

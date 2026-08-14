@@ -1,7 +1,7 @@
 # Florence Backend — AI Context Pack
 
 > Single-file compact context so an AI agent can understand the Florence backend and add new endpoints/features correctly.
-> Source of truth: `/home/efe/Belgeler/florence/backend` (version 0.5.7, FastAPI 0.139, fully async, no ORM).
+> Source of truth: the Florence backend repo (version 0.5.7, FastAPI 0.139, fully async, no ORM).
 > Generated: 2026-08-14. Full reference: `api-reference-en.md` / `api-reference-tr.md`. Machine spec: `openapi.json` at repo root.
 
 ---
@@ -75,7 +75,7 @@ Florence is a BIST (Turkish stock exchange) financial platform API server.
 
 ## 4. Endpoint Inventory (compact)
 
-All under `/api/v1`. Legend: P=public, J=JWT, A=admin-only within JWT, ⚙=feature-gated, ⏳=job-slot.
+All under `/api/v1`. Legend: P=public, J=JWT, A=admin-only within JWT, F=feature-gated, S=job-slot.
 
 ### Auth & User (`src/api/auth.py`)
 | Method | Path | Auth | Notes |
@@ -104,7 +104,7 @@ All under `/api/v1`. Legend: P=public, J=JWT, A=admin-only within JWT, ⚙=featu
 | GET | `/companies/info/{ticker}` | P | structured yfinance profile |
 | GET | `/companies/info/{ticker}/md` | P | markdown text |
 | GET | `/companies/summary` | P | sort incl. gainers/losers/price_high/volume/market_cap; `tickers` CSV filter |
-| GET | `/news/{ticker}` | J ⚙news | 10/min (admin 100); `amount` 1-50; GDELT |
+| GET | `/news/{ticker}` | J F:news | 10/min (admin 100); `amount` 1-50; GDELT |
 | GET | `/price/history/{ticker}` | P | period 1d..max; interval 5m..3mo (interval/day constraints!) |
 | GET | `/price/current` | P | quote; `?ticker=&interval=` |
 | GET | `/stats/top` | P | popular tickers by activity |
@@ -113,7 +113,7 @@ All under `/api/v1`. Legend: P=public, J=JWT, A=admin-only within JWT, ⚙=featu
 ### Reports (`src/api/reports.py`)
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/reports/generate` | J ⚙report_generate ⏳report(900s) | `?ticker=&type=quick_report\|deep_report&purpose=`; credit: estimate charged → refund/extra by actual tokens; 402 insufficient |
+| POST | `/reports/generate` | J F:report_generate S:report(900s) | `?ticker=&type=quick_report\|deep_report&purpose=`; credit: estimate charged → refund/extra by actual tokens; 402 insufficient |
 | GET | `/reports/info` | (none — 401 without token) | costs + endpoint docs |
 | GET | `/reports/history` | J | sort=created_at\|ticker, order=asc\|desc (allowlist) |
 | GET | `/reports/search` | J | `?q=` ILIKE title/content; limit/offset |
@@ -127,7 +127,7 @@ All under `/api/v1`. Legend: P=public, J=JWT, A=admin-only within JWT, ⚙=featu
 | GET | `/simulations/estimate-cost/{ticker}` | J | `?days=1..370` |
 | GET | `/simulations/history` | J | limit/offset |
 | GET | `/simulations/history/{sim_id}` | J | detail incl. result JSONB |
-| GET | `/simulations/{ticker}` | J ⚙simulation ⏳simulation(600s) | `?days=&bounds=&target=`; cost=days×0.005; returns prob_above/prob_below/confidence + metadata |
+| GET | `/simulations/{ticker}` | J F:simulation S:simulation(600s) | `?days=&bounds=&target=`; cost=days×0.005; returns prob_above/prob_below/confidence + metadata |
 
 ### Economy / Macro / IPO (`src/api/economy.py`, `ipo.py`) — all P
 | Method | Path | Notes |
@@ -190,8 +190,8 @@ Concurrency: every mutation takes `pg_advisory_xact_lock(hashtext(portfolio_id))
 | PUT | `/announcements/{id}` | J+A | update |
 | DELETE | `/announcements/{id}` | J+A | delete |
 | POST | `/announcements/read` | J | mark all read |
-| POST | `/stocks/fit` | J ⚙advisor | `{horizon, profitability, risk_tolerance, limit}` → similarity |
-| POST | `/portfolio/profile` | J ⚙advisor | `{tickers[1-50], limit}` → similar stocks (Euclidean) |
+| POST | `/stocks/fit` | J F:advisor | `{horizon, profitability, risk_tolerance, limit}` → similarity |
+| POST | `/portfolio/profile` | J F:advisor | `{tickers[1-50], limit}` → similar stocks (Euclidean) |
 | GET | `/market/status` | P | open/next_open_at/holiday (60s cache) |
 | GET | `/maintenance` | P | disabled feature list |
 | GET | `/meta/avatars` | P | 12 avatars |
